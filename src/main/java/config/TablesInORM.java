@@ -34,8 +34,8 @@ public class TablesInORM {
                 Class foundClass = Class.forName(pathToEntities + name.replaceAll(".java", ""));
                 String query = getQueryForCreateTable(foundClass);
                 try (Statement statement = getConnection().createStatement()) {
-                    int res = statement.executeUpdate(query);
-                    log.debug(res == 1 ? "query was competed : " + query: "table exists already with name : " + getTableName(foundClass));
+                    statement.executeUpdate(query);
+                    log.debug("query was completed : " + query);
                 }
             }
         }
