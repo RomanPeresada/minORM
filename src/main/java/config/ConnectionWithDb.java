@@ -1,4 +1,4 @@
-package driver;
+package config;
 
 import org.apache.log4j.Logger;
 

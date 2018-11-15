@@ -1,4 +1,4 @@
-package util;
+package config;
 
 
 import annotation.Column;
@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import static driver.ConnectionWithDb.getConnection;
+import static config.ConnectionWithDb.getConnection;
 
 public class TablesInORM {
     private static String pathToEntities = null;
@@ -35,7 +35,7 @@ public class TablesInORM {
                 String query = getQueryForCreateTable(foundClass);
                 try (Statement statement = getConnection().createStatement()) {
                     int res = statement.executeUpdate(query);
-                    log.debug(res == 1? "query was competed : " + query: "table's exists already with name : " + getTableName(foundClass));
+                    log.debug(res == 1 ? "query was competed : " + query: "table exists already with name : " + getTableName(foundClass));
                 }
             }
         }
@@ -44,21 +44,21 @@ public class TablesInORM {
     private static String getQueryForCreateTable(Class foundClass) {
         String tableName = getTableName(foundClass);
         StringBuilder primaryKey = new StringBuilder(" PRIMARY KEY(");
-        boolean isExistsPrimaryKey = false;
+        boolean doesExistPrimaryKey = false;
         List<FieldPropertiesInDatabase> fieldsForDatabase = getFieldsPropertiesNecessaryForTableInDb(foundClass);
         StringBuilder builder = new StringBuilder("CREATE TABLE IF NOT EXISTS ").append(tableName).append("(");
         for (FieldPropertiesInDatabase field : fieldsForDatabase) {
             if (field.isPrimary()) {
                 primaryKey.append(field.getName()).append(")");
                 builder.append(getRowWithAutoIncrementForPrimaryKey(field));
-                isExistsPrimaryKey = true;
+                doesExistPrimaryKey = true;
             } else {
                 builder.append(getRowForUsualField(field));
             }
         }
-        builder = isExistsPrimaryKey ? builder.append(primaryKey) : builder.deleteCharAt(builder.length() - 1);
+        builder = doesExistPrimaryKey ? builder.append(primaryKey) : builder.deleteCharAt(builder.length() - 1);
         builder.append(");");
-        System.out.println(builder.toString());
+       // System.out.println(builder.toString());
         return builder.toString();
     }
 

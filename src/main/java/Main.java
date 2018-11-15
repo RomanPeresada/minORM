@@ -1,4 +1,4 @@
-import util.TablesInORM;
+import config.TablesInORM;
 
 import java.io.IOException;
 import java.sql.SQLException;
