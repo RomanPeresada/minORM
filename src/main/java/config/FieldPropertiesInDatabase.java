@@ -1,13 +1,25 @@
 package config;
 
+import config.enu.RelationshipType;
+
 public class FieldPropertiesInDatabase {
     private String name;
     private String type;
     private boolean unique;
     private boolean nullable;
     private int length;
-    private boolean isPrimary;
+    private boolean isPrimaryKey;
+    private boolean isForeignKey;
+    private Class foreignEntity;
+    private RelationshipType relationshipType = RelationshipType.NOTHING;
 
+    public RelationshipType getRelationshipType() {
+        return relationshipType;
+    }
+
+    public void setRelationshipType(RelationshipType relationshipType) {
+        this.relationshipType = relationshipType;
+    }
 
     public void setName(String name) {
         this.name = name;
@@ -29,12 +41,20 @@ public class FieldPropertiesInDatabase {
         this.length = length;
     }
 
-    public void setPrimary(boolean primary) {
-        isPrimary = primary;
+    public void setPrimaryKey(boolean primaryKey) {
+        isPrimaryKey = primaryKey;
     }
 
-    public boolean isPrimary() {
-        return isPrimary;
+    public boolean isPrimaryKey() {
+        return isPrimaryKey;
+    }
+
+    public boolean isForeignKey() {
+        return isForeignKey;
+    }
+
+    public void setForeignKey(boolean foreignKey) {
+        isForeignKey = foreignKey;
     }
 
     public String getName() {
@@ -57,4 +77,11 @@ public class FieldPropertiesInDatabase {
         return length;
     }
 
+    public Class getForeignEntity() {
+        return foreignEntity;
+    }
+
+    public void setForeignEntity(Class foreignEntity) {
+        this.foreignEntity = foreignEntity;
+    }
 }

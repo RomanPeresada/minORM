@@ -2,7 +2,10 @@ package domain;
 
 import annotation.Column;
 import annotation.Id;
+import annotation.OneToMany;
 import annotation.Table;
+
+import java.util.List;
 
 @Table(name = "person")
 public class Person {
@@ -14,4 +17,7 @@ public class Person {
 
     @Column(name = "password", nullable = false, length = 40)
     private String password;
+
+//    @OneToMany(targetEntity = Car.class)
+//    private List<Car> cars;
 }

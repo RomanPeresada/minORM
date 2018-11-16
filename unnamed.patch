@@ -1,0 +1,366 @@
+Index: src/main/java/domain/Car.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/domain/Car.java	(revision ec8ce30bd2b386dd49b15abdf7909174d7347f5f)
++++ src/main/java/domain/Car.java	(date 1542377202961)
+@@ -1,21 +1,22 @@
+ package domain;
+ 
+-import annotation.Column;
+-import annotation.Id;
+-import annotation.Table;
++import annotation.*;
++import domain.Person;
+ 
+ @Table(name = "car")
+ public class Car {
+     @Id
+-    private int id;
++    private long id;
+ 
+-    @Column(name = "name",nullable = false)
++    @Column(name = "name", nullable = false)
+     private String name;
+ 
+-    @Column(name = "year",nullable = false)
++    @Column(name = "year", nullable = false)
+     private int year;
+ 
+     @Column(name = "is_changed_color")
+     private boolean isChangedColor;
+ 
++    @OneToOne(targetEntity = Person.class)
++    private Person owner;
+ }
+Index: src/main/java/Main.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/Main.java	(revision ec8ce30bd2b386dd49b15abdf7909174d7347f5f)
++++ src/main/java/Main.java	(date 1542319199509)
+@@ -4,7 +4,7 @@
+ import java.sql.SQLException;
+ 
+ public class Main {
+-    public static void main(String[] args) throws ClassNotFoundException, SQLException, IOException {
++    public static void main(String[] args) throws ClassNotFoundException, SQLException, IOException, NoSuchFieldException {
+         //ConnectionWithDb.getConnection().close();
+         TablesInORM.autoCreatingTablesAfterStartOfProgram();
+     }
+Index: src/main/java/config/FieldPropertiesInDatabase.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/config/FieldPropertiesInDatabase.java	(revision ec8ce30bd2b386dd49b15abdf7909174d7347f5f)
++++ src/main/java/config/FieldPropertiesInDatabase.java	(date 1542375034834)
+@@ -1,13 +1,25 @@
+ package config;
+ 
++import config.enu.RelationshipType;
++
+ public class FieldPropertiesInDatabase {
+     private String name;
+     private String type;
+     private boolean unique;
+     private boolean nullable;
+     private int length;
+-    private boolean isPrimary;
++    private boolean isPrimaryKey;
++    private boolean isForeignKey;
++    private Class foreignEntity;
++    private RelationshipType relationshipType = RelationshipType.NOTHING;
+ 
++    public RelationshipType getRelationshipType() {
++        return relationshipType;
++    }
++
++    public void setRelationshipType(RelationshipType relationshipType) {
++        this.relationshipType = relationshipType;
++    }
+ 
+     public void setName(String name) {
+         this.name = name;
+@@ -29,12 +41,20 @@
+         this.length = length;
+     }
+ 
+-    public void setPrimary(boolean primary) {
+-        isPrimary = primary;
++    public void setPrimaryKey(boolean primaryKey) {
++        isPrimaryKey = primaryKey;
++    }
++
++    public boolean isPrimaryKey() {
++        return isPrimaryKey;
++    }
++
++    public boolean isForeignKey() {
++        return isForeignKey;
+     }
+ 
+-    public boolean isPrimary() {
+-        return isPrimary;
++    public void setForeignKey(boolean foreignKey) {
++        isForeignKey = foreignKey;
+     }
+ 
+     public String getName() {
+@@ -57,4 +77,11 @@
+         return length;
+     }
+ 
++    public Class getForeignEntity() {
++        return foreignEntity;
++    }
++
++    public void setForeignEntity(Class foreignEntity) {
++        this.foreignEntity = foreignEntity;
++    }
+ }
+Index: src/main/java/config/TablesInORM.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/config/TablesInORM.java	(revision ec8ce30bd2b386dd49b15abdf7909174d7347f5f)
++++ src/main/java/config/TablesInORM.java	(date 1542379899376)
+@@ -1,9 +1,8 @@
+ package config;
+ 
+ 
+-import annotation.Column;
+-import annotation.Id;
+-import annotation.Table;
++import annotation.*;
++import config.enu.RelationshipType;
+ import org.apache.log4j.Logger;
+ 
+ import java.io.File;
+@@ -21,10 +20,11 @@
+ 
+ public class TablesInORM {
+     private static String pathToEntities = null;
++    private static List<String> foreignkeys = new ArrayList<>();
+     private final static Logger log = Logger.getLogger(TablesInORM.class);
+ 
+ 
+-    public static void autoCreatingTablesAfterStartOfProgram() throws ClassNotFoundException, SQLException, IOException {
++    public static void autoCreatingTablesAfterStartOfProgram() throws ClassNotFoundException, SQLException, IOException, NoSuchFieldException {
+         getInfoFromProperties();
+         String[] classesName = new File(pathToEntities).list();
+         pathToEntities = replaceSymbolsInPathForReflect(pathToEntities);
+@@ -38,36 +38,75 @@
+                     log.debug("query was completed : " + query);
+                 }
+             }
++            for (String foreignkey : foreignkeys) {
++                try (Statement statement = getConnection().createStatement()) {
++                    statement.executeUpdate(foreignkey);
++                    log.debug("query was completed : " + foreignkey);
++                }
++            }
+         }
+     }
+ 
+-    private static String getQueryForCreateTable(Class foundClass) {
++    private static String getQueryForCreateTable(Class foundClass) throws NoSuchFieldException {
+         String tableName = getTableName(foundClass);
+         StringBuilder primaryKey = new StringBuilder(" PRIMARY KEY(");
++
+         boolean doesExistPrimaryKey = false;
++        int counterOfForeignKeys = 0;
+         List<FieldPropertiesInDatabase> fieldsForDatabase = getFieldsPropertiesNecessaryForTableInDb(foundClass);
+         StringBuilder builder = new StringBuilder("CREATE TABLE IF NOT EXISTS ").append(tableName).append("(");
+         for (FieldPropertiesInDatabase field : fieldsForDatabase) {
+-            if (field.isPrimary()) {
++            StringBuilder foreignKey = new StringBuilder("FOREIGN KEY(");
++            if (field.isPrimaryKey()) {
+                 primaryKey.append(field.getName()).append(")");
+                 builder.append(getRowWithAutoIncrementForPrimaryKey(field));
+                 doesExistPrimaryKey = true;
+-            } else {
+-                builder.append(getRowForUsualField(field));
++                continue;
++            }
++            switch (field.getRelationshipType()) {
++                case ONE_TO_ONE:
++                case MANY_TO_ONE:
++                    builder.append(getRowForUsualField(field));
++                    foreignKey.append(getRowForForeignKeyOneToOne(field, counterOfForeignKeys));
++                    counterOfForeignKeys++;
++                    foreignkeys.add("ALTER TABLE " + tableName + " ADD " + foreignKey + ";");
++                    break;
++                case ONE_TO_MANY:
++                    foreignKey.append(getRowForForeignKeyOneToOne(field, counterOfForeignKeys));
++                    counterOfForeignKeys++;
++                    foreignkeys.add("ALTER TABLE " + tableName + " ADD " + foreignKey + ";");
++
++                    break;
++                case MANY_TO_MANY:
++                    foreignkeys.add("ALTER TABLE " + tableName + " ADD " + foreignKey + ";");
++                    break;
++                default:
++                    builder.append(getRowForUsualField(field));
++                    break;
+             }
+         }
+         builder = doesExistPrimaryKey ? builder.append(primaryKey) : builder.deleteCharAt(builder.length() - 1);
+         builder.append(");");
+-       // System.out.println(builder.toString());
++        System.out.println(builder.toString());
+         return builder.toString();
+     }
+ 
++    private static StringBuilder getRowForForeignKeyOneToOne(FieldPropertiesInDatabase field, int counterOfForeignKeys) {
++        StringBuilder foreignKey = new StringBuilder();
++        if (counterOfForeignKeys > 0) {
++            foreignKey.append(", FOREIGN KEY(");
++        }
++        foreignKey.append(field.getName()).append(") REFERENCES ")
++                .append(getTableName(field.getForeignEntity())).append("(id)");
++        return foreignKey;
++    }
++
+     private static StringBuilder getRowForUsualField(FieldPropertiesInDatabase field) {
+         StringBuilder builder = new StringBuilder();
+         String type = getTypeForField(field);
+         builder.append(field.getName())
+                 .append(" ").append(type).append(field.getType().equals("VARCHAR") ? "(" + field.getLength() + ")" : "")
+-                .append(field.isPrimary() ? " AUTO_INCREMENT " : " ")
++                .append(field.isPrimaryKey() ? " AUTO_INCREMENT " : " ")
+                 .append(!field.isNullable() ? "NOT NULL " : "")
+                 .append(field.isUnique() ? "UNIQUE," : ",");
+         return builder;
+@@ -78,7 +117,7 @@
+         String type = getTypeForField(field);
+         builder.append(field.getName())
+                 .append(" ").append(type).append(field.getType().equals("VARCHAR") ? "(" + field.getLength() + ")" : "")
+-                .append(field.isPrimary() && !field.getType().equals("VARCHAR") ? " AUTO_INCREMENT, " : " ");
++                .append(field.isPrimaryKey() && !field.getType().equals("VARCHAR") ? " AUTO_INCREMENT, " : " ");
+         return builder;
+     }
+ 
+@@ -103,29 +142,66 @@
+         return fullPathWhereAreEntity;
+     }
+ 
+-    private static List<FieldPropertiesInDatabase> getFieldsPropertiesNecessaryForTableInDb(Class<?> c) {
++    private static List<FieldPropertiesInDatabase> getFieldsPropertiesNecessaryForTableInDb(Class<?> c) throws NoSuchFieldException {
+         List<FieldPropertiesInDatabase> fieldsInDb = new ArrayList<>();
+         Field[] fields = c.getDeclaredFields();
+         for (Field field : fields) {
+             Annotation[] annotations = field.getDeclaredAnnotations();
+             for (Annotation currentAnnotation : annotations) {
+-                FieldPropertiesInDatabase fieldInDatabase = new FieldPropertiesInDatabase();
+-                if (currentAnnotation instanceof Id) {
+-                    fieldInDatabase.setName(((Id) currentAnnotation).name());
+-                    fieldInDatabase.setPrimary(true);
+-                    fieldInDatabase.setType(field.getType().toString().endsWith("String") ? "VARCHAR" : field.getType().toString());
+-                }
+-                if (currentAnnotation instanceof Column) {
+-                    fieldInDatabase.setName(((Column) currentAnnotation).name());
+-                    fieldInDatabase.setType(field.getType().toString().endsWith("String") ? "VARCHAR" : field.getType().toString());
+-                    fieldInDatabase.setUnique(((Column) currentAnnotation).unique());
+-                    fieldInDatabase.setNullable(((Column) currentAnnotation).nullable());
+-                    fieldInDatabase.setLength(((Column) currentAnnotation).length());
+-                }
+-                fieldsInDb.add(fieldInDatabase);
+-            }
++                FieldPropertiesInDatabase fieldInDatabase = getRelevantFieldDependsInAnnotation(field, currentAnnotation);
++                fieldsInDb.add(fieldInDatabase);
++            }
++        }
++        return fieldsInDb;
++    }
++
++    private static FieldPropertiesInDatabase getRelevantFieldDependsInAnnotation(Field field, Annotation currentAnnotation) throws NoSuchFieldException {
++        FieldPropertiesInDatabase fieldInDatabase = new FieldPropertiesInDatabase();
++        if (currentAnnotation instanceof Id) {
++            fieldInDatabase.setName(((Id) currentAnnotation).name());
++            fieldInDatabase.setPrimaryKey(true);
++            fieldInDatabase.setType(field.getType().toString().endsWith("String") ? "VARCHAR" : field.getType().toString());
++        }
++        if (currentAnnotation instanceof Column) {
++            fieldInDatabase.setName(((Column) currentAnnotation).name());
++            fieldInDatabase.setType(field.getType().toString().endsWith("String") ? "VARCHAR" : field.getType().toString());
++            fieldInDatabase.setUnique(((Column) currentAnnotation).unique());
++            fieldInDatabase.setNullable(((Column) currentAnnotation).nullable());
++            fieldInDatabase.setLength(((Column) currentAnnotation).length());
++        }
++        if (currentAnnotation instanceof OneToOne) {
++            fieldInDatabase.setName(field.getName() + "_id");
++            fieldInDatabase.setForeignKey(true);
++            fieldInDatabase.setNullable(((OneToOne) currentAnnotation).doesExistWithoutOtherEntity());
++            fieldInDatabase.setUnique(true);
++            fieldInDatabase.setRelationshipType(RelationshipType.ONE_TO_ONE);
++            fieldInDatabase.setForeignEntity(((OneToOne) currentAnnotation).targetEntity());
++            fieldInDatabase.setType(((OneToOne) currentAnnotation).targetEntity().getDeclaredField("id").getType().toString());
++        }
++        if (currentAnnotation instanceof ManyToOne) {
++            fieldInDatabase.setName(field.getName() + "_id");
++            fieldInDatabase.setForeignKey(true);
++            fieldInDatabase.setNullable(((ManyToOne) currentAnnotation).doesExistWithoutOtherEntity());
++            fieldInDatabase.setUnique(true);
++            fieldInDatabase.setRelationshipType(RelationshipType.MANY_TO_ONE);
++            fieldInDatabase.setForeignEntity(((ManyToOne) currentAnnotation).targetEntity());
++            String typeOtherEntity = !((ManyToOne) currentAnnotation).nameOfPrimaryKeyOtherEntity().equals("") ?
++                    ((ManyToOne) currentAnnotation).targetEntity().getDeclaredField(((ManyToOne) currentAnnotation).nameOfPrimaryKeyOtherEntity()).getType().toString() :
++                    ((ManyToOne) currentAnnotation).targetEntity().getDeclaredField("id").getType().toString();
++            fieldInDatabase.setType(typeOtherEntity);
+         }
+-        return fieldsInDb;
++        if (currentAnnotation instanceof OneToMany) {
++            fieldInDatabase.setName("id");
++            fieldInDatabase.setForeignKey(true);
++            fieldInDatabase.setNullable(((OneToMany) currentAnnotation).doesExistWithoutOtherEntity());
++            fieldInDatabase.setRelationshipType(RelationshipType.ONE_TO_MANY);
++            fieldInDatabase.setForeignEntity(((OneToMany) currentAnnotation).targetEntity());
++            String typeOtherEntity = !((OneToMany) currentAnnotation).nameOfPrimaryKeyOtherEntity().equals("") ?
++                    ((OneToMany) currentAnnotation).targetEntity().getDeclaredField(((OneToMany) currentAnnotation).nameOfPrimaryKeyOtherEntity()).getType().toString() :
++                    ((OneToMany) currentAnnotation).targetEntity().getDeclaredField("id").getType().toString();
++            fieldInDatabase.setType(typeOtherEntity);
++        }
++        return fieldInDatabase;
+     }
+ 
+     private static String getTypeForField(FieldPropertiesInDatabase field) {
+@@ -134,6 +210,8 @@
+             typeInDb = "VARCHAR";
+         } else if (typeInDb.endsWith("long")) {
+             typeInDb = "BIGINT";
++        } else if (typeInDb.endsWith("LocalDate")) {
++            typeInDb = "DATE";
+         }
+         return typeInDb;
+     }
+Index: src/main/java/domain/Person.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/domain/Person.java	(revision ec8ce30bd2b386dd49b15abdf7909174d7347f5f)
++++ src/main/java/domain/Person.java	(date 1542376193511)
+@@ -2,8 +2,11 @@
+ 
+ import annotation.Column;
+ import annotation.Id;
++import annotation.OneToMany;
+ import annotation.Table;
+ 
++import java.util.List;
++
+ @Table(name = "person")
+ public class Person {
+     @Id
+@@ -14,4 +17,7 @@
+ 
+     @Column(name = "password", nullable = false, length = 40)
+     private String password;
++
++//    @OneToMany(targetEntity = Car.class)
++//    private List<Car> cars;
+ }
