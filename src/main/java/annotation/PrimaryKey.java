@@ -7,10 +7,7 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
-public @interface OneToOne {
-    Class targetEntity();
-
-    String mappedBy() default "";
-
-    boolean doesExistWithoutOtherEntity() default true;
+public @interface PrimaryKey {
+    String name();
+    int length() default 255;
 }

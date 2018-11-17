@@ -10,7 +10,5 @@ import java.lang.annotation.Target;
 public @interface ManyToOne {
     Class targetEntity();
 
-    String nameOfPrimaryKeyOtherEntity() default "";
-
     boolean doesExistWithoutOtherEntity() default true;
 }

@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
 public @interface OneToMany {
     Class targetEntity();
 
-    String nameOfPrimaryKeyOtherEntity() default "";
+    String mappedBy() default "";
 
     boolean doesExistWithoutOtherEntity() default true;
 }

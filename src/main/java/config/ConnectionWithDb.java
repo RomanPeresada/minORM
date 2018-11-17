@@ -1,6 +1,6 @@
 package config;
 
-import org.apache.log4j.Logger;
+//import org.apache.log4j.Logger;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -17,15 +17,15 @@ public class ConnectionWithDb {
     private static String dbName = null;
     private static String loginForDb = null;
     private static String passwordForDb = null;
-    private final static Logger log = Logger.getLogger(ConnectionWithDb.class);
+    //private final static Logger log = Logger.getLogger(ConnectionWithDb.class);
 
 
     static {
         try {
             getInitialConnectionWithDB();
-            log.debug("Connection to database completed successful");
+           // log.debug("Connection to database completed successful");
         } catch (SQLException | IOException e) {
-            log.error(e.getMessage());
+           // log.error(e.getMessage());
         }
     }
 

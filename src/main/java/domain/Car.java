@@ -3,6 +3,8 @@ package domain;
 import annotation.*;
 import domain.Person;
 
+import java.util.List;
+
 @Table(name = "car")
 public class Car {
     @Id
@@ -17,6 +19,9 @@ public class Car {
     @Column(name = "is_changed_color")
     private boolean isChangedColor;
 
-    @OneToOne(targetEntity = Person.class)
-    private Person owner;
+    @ManyToMany(targetEntity = Person.class, mappedBy = "cars")
+    private List<Person> owners;
+
+//    @ManyToOne(targetEntity = Manufactured.class)
+//    private Manufactured manufactured;
 }

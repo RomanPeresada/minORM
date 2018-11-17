@@ -1,6 +1,6 @@
-package config;
+package config.model;
 
-import config.enu.RelationshipType;
+import config.enumiration.RelationshipType;
 
 public class FieldPropertiesInDatabase {
     private String name;
@@ -8,10 +8,46 @@ public class FieldPropertiesInDatabase {
     private boolean unique;
     private boolean nullable;
     private int length;
+    private boolean isId;
     private boolean isPrimaryKey;
     private boolean isForeignKey;
+    private String mappedBy;
     private Class foreignEntity;
+    private String columnInManyToMany;
+    private String tableInManyToMany;
     private RelationshipType relationshipType = RelationshipType.NOTHING;
+
+    public String getTableInManyToMany() {
+        return tableInManyToMany;
+    }
+
+    public void setTableInManyToMany(String tableInManyToMany) {
+        this.tableInManyToMany = tableInManyToMany;
+    }
+
+    public String getColumnInManyToMany() {
+        return columnInManyToMany;
+    }
+
+    public void setColumnInManyToMany(String columnInManyToMany) {
+        this.columnInManyToMany = columnInManyToMany;
+    }
+
+    public boolean isId() {
+        return isId;
+    }
+
+    public void setId(boolean id) {
+        isId = id;
+    }
+
+    public String getMappedBy() {
+        return mappedBy;
+    }
+
+    public void setMappedBy(String mappedBy) {
+        this.mappedBy = mappedBy;
+    }
 
     public RelationshipType getRelationshipType() {
         return relationshipType;
