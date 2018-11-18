@@ -94,12 +94,12 @@ public class TablesInORM {
                     break;
                 case ONE_TO_ONE_MAPPED:
                 case ONE_TO_MANY:
-                    foreignKey.append(getForeignKeyOneToOneMapped(field));
-                    foreignkeys.add("ALTER TABLE " + tableName + " ADD " + foreignKey + ";");
+                   // foreignKey.append(getForeignKeyOneToOneMapped(field));
+                   // foreignkeys.add("ALTER TABLE " + tableName + " ADD " + foreignKey + ";");
                     break;
                 case MANY_TO_MANY:
-                    foreignKey.append(getForeignKeyManyToMany(field));
-                    foreignkeys.add("ALTER TABLE " + tableName + " ADD " + foreignKey + ";");
+                   // foreignKey.append(getForeignKeyManyToMany(field));
+                   // foreignkeys.add("ALTER TABLE " + tableName + " ADD " + foreignKey + ";");
                     break;
                 default:
                     builder.append(getRowForUsualField(field));

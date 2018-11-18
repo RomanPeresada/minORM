@@ -24,4 +24,12 @@ public class Person {
             joinColumn = "person_id",
             inverseJoinColumn = "car_id")
     private List<Car> cars;
+
+    public Person(long id, String login, String name, String password, List<Car> cars) {
+        this.id = id;
+        this.login = login;
+        this.name = name;
+        this.password = password;
+        this.cars = cars;
+    }
 }

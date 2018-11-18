@@ -15,6 +15,6 @@ public class Manufactured {
     @Column(name = "country", unique = true, nullable = false, length = 30)
     private String country;
 
-//    @OneToMany(mappedBy = "manufactured", targetEntity = Car.class)
-//    private List<Car> cars;
+    @OneToMany(mappedBy = "manufactured", targetEntity = Car.class)
+    private List<Car> cars;
 }

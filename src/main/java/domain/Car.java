@@ -22,6 +22,6 @@ public class Car {
     @ManyToMany(targetEntity = Person.class, mappedBy = "cars")
     private List<Person> owners;
 
-//    @ManyToOne(targetEntity = Manufactured.class)
-//    private Manufactured manufactured;
+    @ManyToOne(targetEntity = Manufactured.class)
+    private Manufactured manufactured;
 }
