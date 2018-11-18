@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static config.ConnectionWithDb.getConnection;
+import static util.ORMUtil.getTableNameByClass;
 
 public class TablesInORM {
     private static String pathToEntities = null;
@@ -70,7 +71,7 @@ public class TablesInORM {
     }
 
     private static String getQueryForCreateTable(Class foundClass) throws NoSuchFieldException {
-        String tableName = getTableName(foundClass);
+        String tableName = getTableNameByClass(foundClass);
         StringBuilder primaryKey = new StringBuilder(" PRIMARY KEY(");
 
         boolean doesExistPrimaryKey = false;
@@ -96,8 +97,7 @@ public class TablesInORM {
                     foreignKey.append(getForeignKeyOneToOneMapped(field));
                     foreignkeys.add("ALTER TABLE " + tableName + " ADD " + foreignKey + ";");
                     break;
-                case MANY_TO_MANY_MAPPED:
-                case MANY_TO_MANY_WITH_CREATING_TABLE:
+                case MANY_TO_MANY:
                     foreignKey.append(getForeignKeyManyToMany(field));
                     foreignkeys.add("ALTER TABLE " + tableName + " ADD " + foreignKey + ";");
                     break;
@@ -114,81 +114,118 @@ public class TablesInORM {
     }
 
 
-    private static FieldPropertiesInDatabase getFieldsDependOfAnnotation(Field field, Annotation currentAnnotation) throws NoSuchFieldException {
+    private static FieldPropertiesInDatabase getFieldDependsOfAnnotation(Field field, Annotation currentAnnotation) throws NoSuchFieldException {
         FieldPropertiesInDatabase fieldInDatabase = new FieldPropertiesInDatabase();
         if (currentAnnotation instanceof Id) {
-            fieldInDatabase.setName(((Id) currentAnnotation).name());
-            fieldInDatabase.setPrimaryKey(true);
-            fieldInDatabase.setId(true);
-            fieldInDatabase.setType(field.getType().toString());
-        }
-        if (currentAnnotation instanceof PrimaryKey) {
-            fieldInDatabase.setName(((PrimaryKey) currentAnnotation).name());
-            fieldInDatabase.setLength(((PrimaryKey) currentAnnotation).length());
-            fieldInDatabase.setType(getTypeForField(field.getType().toString()));
-            fieldInDatabase.setPrimaryKey(true);
-
-        }
-        if (currentAnnotation instanceof Column) {
-            fieldInDatabase.setName(((Column) currentAnnotation).name());
-            fieldInDatabase.setType(getTypeForField(field.getType().toString()));
-            fieldInDatabase.setUnique(((Column) currentAnnotation).unique());
-            fieldInDatabase.setNullable(((Column) currentAnnotation).nullable());
-            fieldInDatabase.setLength(((Column) currentAnnotation).length());
+            fieldInDatabase = getFieldPropertiesForAnnotationId(currentAnnotation, field);
+        } else if (currentAnnotation instanceof PrimaryKey) {
+            fieldInDatabase = getFieldPropertiesForAnnotationPrimaryKey(currentAnnotation, field);
+        } else if (currentAnnotation instanceof Column) {
+            fieldInDatabase = getFieldPropertiesForAnnotationColumn(currentAnnotation, field);
         }
         if (currentAnnotation instanceof OneToOne) {
-            if (!((OneToOne) currentAnnotation).mappedBy().isEmpty()) {
-                Field fieldOfOtherEntity = ((OneToOne) currentAnnotation).targetEntity().getDeclaredField(((OneToOne) currentAnnotation).mappedBy());
-                fieldInDatabase.setMappedBy(fieldOfOtherEntity.getName() + "_id");
-                fieldInDatabase.setForeignEntity(((OneToOne) currentAnnotation).targetEntity());
-                fieldInDatabase.setRelationshipType(RelationshipType.ONE_TO_ONE_MAPPED);
-            } else {
-                fieldInDatabase.setName(field.getName() + "_id");
-                fieldInDatabase.setForeignKey(true);
-                fieldInDatabase.setNullable(((OneToOne) currentAnnotation).doesExistWithoutOtherEntity());
-                fieldInDatabase.setUnique(true);
-                fieldInDatabase.setRelationshipType(RelationshipType.ONE_TO_ONE);
-                fieldInDatabase.setForeignEntity(((OneToOne) currentAnnotation).targetEntity());
-                fieldInDatabase.setType(((OneToOne) currentAnnotation).targetEntity().getDeclaredField("id").getType().toString());
-            }
+            fieldInDatabase = getFieldPropertiesForAnnotationOneToOne(currentAnnotation, field);
         } else if (currentAnnotation instanceof ManyToOne) {
+            fieldInDatabase = getFieldPropertiesForAnnotationManyToOne(currentAnnotation, field);
+        } else if (currentAnnotation instanceof OneToMany) {
+            fieldInDatabase = getFieldPropertiesForAnnotationOneToMany(currentAnnotation, field);
+        } else if (currentAnnotation instanceof ManyToMany) {
+            fieldInDatabase = getFieldPropertiesForAnnotationManyToMany(currentAnnotation, field);
+        }
+        return fieldInDatabase;
+    }
+
+    private static FieldPropertiesInDatabase getFieldPropertiesForAnnotationId(Annotation currentAnnotation, Field field) {
+        FieldPropertiesInDatabase fieldInDatabase = new FieldPropertiesInDatabase();
+        fieldInDatabase.setName(((Id) currentAnnotation).name());
+        fieldInDatabase.setPrimaryKey(true);
+        fieldInDatabase.setId(true);
+        fieldInDatabase.setType(field.getType().toString());
+        return fieldInDatabase;
+    }
+
+    private static FieldPropertiesInDatabase getFieldPropertiesForAnnotationPrimaryKey(Annotation currentAnnotation, Field field) {
+        FieldPropertiesInDatabase fieldInDatabase = new FieldPropertiesInDatabase();
+        fieldInDatabase.setName(((PrimaryKey) currentAnnotation).name());
+        fieldInDatabase.setLength(((PrimaryKey) currentAnnotation).length());
+        fieldInDatabase.setType(getTypeForField(field.getType().toString()));
+        fieldInDatabase.setPrimaryKey(true);
+        return fieldInDatabase;
+    }
+
+    private static FieldPropertiesInDatabase getFieldPropertiesForAnnotationColumn(Annotation currentAnnotation, Field field) {
+        FieldPropertiesInDatabase fieldInDatabase = new FieldPropertiesInDatabase();
+        fieldInDatabase.setName(((Column) currentAnnotation).name());
+        fieldInDatabase.setType(getTypeForField(field.getType().toString()));
+        fieldInDatabase.setUnique(((Column) currentAnnotation).unique());
+        fieldInDatabase.setNullable(((Column) currentAnnotation).nullable());
+        fieldInDatabase.setLength(((Column) currentAnnotation).length());
+        return fieldInDatabase;
+    }
+
+    private static FieldPropertiesInDatabase getFieldPropertiesForAnnotationOneToOne(Annotation currentAnnotation, Field field) throws NoSuchFieldException {
+        FieldPropertiesInDatabase fieldInDatabase = new FieldPropertiesInDatabase();
+        if (!((OneToOne) currentAnnotation).mappedBy().isEmpty()) {
+            Field fieldOfOtherEntity = ((OneToOne) currentAnnotation).targetEntity().getDeclaredField(((OneToOne) currentAnnotation).mappedBy());
+            fieldInDatabase.setMappedBy(fieldOfOtherEntity.getName() + "_id");
+            fieldInDatabase.setForeignEntity(((OneToOne) currentAnnotation).targetEntity());
+            fieldInDatabase.setRelationshipType(RelationshipType.ONE_TO_ONE_MAPPED);
+        } else {
             fieldInDatabase.setName(field.getName() + "_id");
             fieldInDatabase.setForeignKey(true);
-            fieldInDatabase.setNullable(((ManyToOne) currentAnnotation).doesExistWithoutOtherEntity());
-            fieldInDatabase.setRelationshipType(RelationshipType.MANY_TO_ONE);
-            fieldInDatabase.setForeignEntity(((ManyToOne) currentAnnotation).targetEntity());
-            fieldInDatabase.setType(((ManyToOne) currentAnnotation).targetEntity().getDeclaredField("id").getType().toString());
-        } else if (currentAnnotation instanceof OneToMany) {
-            Field fieldOfOtherEntity = ((OneToMany) currentAnnotation).targetEntity().getDeclaredField(((OneToMany) currentAnnotation).mappedBy());
-            fieldInDatabase.setMappedBy(fieldOfOtherEntity.getName() + "_id");
-            fieldInDatabase.setForeignEntity(((OneToMany) currentAnnotation).targetEntity());
-            fieldInDatabase.setRelationshipType(RelationshipType.ONE_TO_MANY);
-        } else if (currentAnnotation instanceof ManyToMany) {
-            if (!((ManyToMany) currentAnnotation).mappedBy().isEmpty()) {
-                Field fieldOfOtherEntity = ((ManyToMany) currentAnnotation).targetEntity().getDeclaredField(((ManyToMany) currentAnnotation).mappedBy());
-                fieldInDatabase.setForeignKey(true);
-                fieldInDatabase.setColumnInManyToMany(fieldOfOtherEntity.getAnnotation(JoinTable.class).inverseJoinColumn());
-                fieldInDatabase.setTableInManyToMany(fieldOfOtherEntity.getAnnotation(JoinTable.class).name());
-                fieldInDatabase.setMappedBy(fieldOfOtherEntity.getName());
-                fieldInDatabase.setForeignEntity(((ManyToMany) currentAnnotation).targetEntity());
-                fieldInDatabase.setRelationshipType(RelationshipType.MANY_TO_MANY_MAPPED);
-            } else {
-                fieldInDatabase.setForeignKey(true);
-                fieldInDatabase.setColumnInManyToMany(field.getAnnotation(JoinTable.class).joinColumn());
-                fieldInDatabase.setTableInManyToMany(field.getAnnotation(JoinTable.class).name());
-                fieldInDatabase.setForeignEntity(((ManyToMany) currentAnnotation).targetEntity());
-                fieldInDatabase.setRelationshipType(RelationshipType.MANY_TO_MANY_WITH_CREATING_TABLE);
+            fieldInDatabase.setNullable(((OneToOne) currentAnnotation).doesExistWithoutOtherEntity());
+            fieldInDatabase.setUnique(true);
+            fieldInDatabase.setRelationshipType(RelationshipType.ONE_TO_ONE);
+            fieldInDatabase.setForeignEntity(((OneToOne) currentAnnotation).targetEntity());
+            fieldInDatabase.setType(((OneToOne) currentAnnotation).targetEntity().getDeclaredField("id").getType().toString());
+        }
+        return fieldInDatabase;
+    }
 
-                TableForManyToMany tableForManyToMany = new TableForManyToMany();
-                tableForManyToMany.setName(field.getAnnotation(JoinTable.class).name());
-                tableForManyToMany.setColumn(field.getAnnotation(JoinTable.class).joinColumn());
-                tableForManyToMany.setTableNameOfColumn(getTableName(field.getDeclaringClass()));
-                tableForManyToMany.setColumnType(getTypeForField(field.getDeclaringClass().getDeclaredField("id").toString()));
-                tableForManyToMany.setInverseColumn(field.getAnnotation(JoinTable.class).inverseJoinColumn());
-                tableForManyToMany.setTableNameOfInverseColumn(getTableName(((ManyToMany)currentAnnotation).targetEntity()));
-                tableForManyToMany.setInverseColumnType(getTypeForField(((ManyToMany) currentAnnotation).targetEntity().getDeclaredField("id").toString()));
-                tablesForManyToMany.add(tableForManyToMany);
-            }
+    private static FieldPropertiesInDatabase getFieldPropertiesForAnnotationManyToOne(Annotation currentAnnotation, Field field) throws NoSuchFieldException {
+        FieldPropertiesInDatabase fieldInDatabase = new FieldPropertiesInDatabase();
+        fieldInDatabase.setName(field.getName() + "_id");
+        fieldInDatabase.setForeignKey(true);
+        fieldInDatabase.setNullable(((ManyToOne) currentAnnotation).doesExistWithoutOtherEntity());
+        fieldInDatabase.setRelationshipType(RelationshipType.MANY_TO_ONE);
+        fieldInDatabase.setForeignEntity(((ManyToOne) currentAnnotation).targetEntity());
+        fieldInDatabase.setType(((ManyToOne) currentAnnotation).targetEntity().getDeclaredField("id").getType().toString());
+        return fieldInDatabase;
+    }
+
+    private static FieldPropertiesInDatabase getFieldPropertiesForAnnotationOneToMany(Annotation currentAnnotation, Field field) throws NoSuchFieldException {
+        FieldPropertiesInDatabase fieldInDatabase = new FieldPropertiesInDatabase();
+        Field fieldOfOtherEntity = ((OneToMany) currentAnnotation).targetEntity().getDeclaredField(((OneToMany) currentAnnotation).mappedBy());
+        fieldInDatabase.setMappedBy(fieldOfOtherEntity.getName() + "_id");
+        fieldInDatabase.setForeignEntity(((OneToMany) currentAnnotation).targetEntity());
+        fieldInDatabase.setRelationshipType(RelationshipType.ONE_TO_MANY);
+        return fieldInDatabase;
+    }
+
+    private static FieldPropertiesInDatabase getFieldPropertiesForAnnotationManyToMany(Annotation currentAnnotation, Field field) throws NoSuchFieldException {
+        FieldPropertiesInDatabase fieldInDatabase = new FieldPropertiesInDatabase();
+        fieldInDatabase.setForeignKey(true);
+        fieldInDatabase.setRelationshipType(RelationshipType.MANY_TO_MANY);
+        if (!((ManyToMany) currentAnnotation).mappedBy().isEmpty()) {
+            Field fieldOfOtherEntity = ((ManyToMany) currentAnnotation).targetEntity().getDeclaredField(((ManyToMany) currentAnnotation).mappedBy());
+            fieldInDatabase.setColumnInManyToMany(fieldOfOtherEntity.getAnnotation(JoinTable.class).inverseJoinColumn());
+            fieldInDatabase.setTableInManyToMany(fieldOfOtherEntity.getAnnotation(JoinTable.class).name());
+            fieldInDatabase.setMappedBy(fieldOfOtherEntity.getName());
+            fieldInDatabase.setForeignEntity(((ManyToMany) currentAnnotation).targetEntity());
+        } else {
+            fieldInDatabase.setColumnInManyToMany(field.getAnnotation(JoinTable.class).joinColumn());
+            fieldInDatabase.setTableInManyToMany(field.getAnnotation(JoinTable.class).name());
+            fieldInDatabase.setForeignEntity(((ManyToMany) currentAnnotation).targetEntity());
+
+            TableForManyToMany tableForManyToMany = new TableForManyToMany();
+            tableForManyToMany.setName(field.getAnnotation(JoinTable.class).name());
+            tableForManyToMany.setColumn(field.getAnnotation(JoinTable.class).joinColumn());
+            tableForManyToMany.setTableNameOfColumn(getTableNameByClass(field.getDeclaringClass()));
+            tableForManyToMany.setColumnType(getTypeForField(field.getDeclaringClass().getDeclaredField("id").toString()));
+            tableForManyToMany.setInverseColumn(field.getAnnotation(JoinTable.class).inverseJoinColumn());
+            tableForManyToMany.setTableNameOfInverseColumn(getTableNameByClass(((ManyToMany) currentAnnotation).targetEntity()));
+            tableForManyToMany.setInverseColumnType(getTypeForField(((ManyToMany) currentAnnotation).targetEntity().getDeclaredField("id").toString()));
+            tablesForManyToMany.add(tableForManyToMany);
         }
         return fieldInDatabase;
     }
@@ -201,7 +238,7 @@ public class TablesInORM {
             Annotation[] annotations = field.getDeclaredAnnotations();
             for (Annotation currentAnnotation : annotations) {
                 if (!(currentAnnotation instanceof JoinTable)) {
-                    FieldPropertiesInDatabase fieldInDatabase = getFieldsDependOfAnnotation(field, currentAnnotation);
+                    FieldPropertiesInDatabase fieldInDatabase = getFieldDependsOfAnnotation(field, currentAnnotation);
                     fieldsInDb.add(fieldInDatabase);
                 }
             }
@@ -212,21 +249,21 @@ public class TablesInORM {
     private static StringBuilder getForeignKeyOneToOneOrManyToOne(FieldPropertiesInDatabase field) {
         StringBuilder foreignKey = new StringBuilder();
         foreignKey.append(field.getName()).append(") REFERENCES ")
-                .append(getTableName(field.getForeignEntity())).append("(id)");
+                .append(getTableNameByClass(field.getForeignEntity())).append("(id)");
         return foreignKey;
     }
 
     private static StringBuilder getForeignKeyManyToMany(FieldPropertiesInDatabase field) {
         StringBuilder foreignKey = new StringBuilder();
         foreignKey.append("id) REFERENCES ")
-                .append(field.getTableInManyToMany()).append("(").append(field.getColumnInManyToMany()).append(")");
+                .append(field.getTableInManyToMany()).append("(").append(field.getColumnInManyToMany()).append(") ON DELETE CASCADE");
         return foreignKey;
     }
 
     private static StringBuilder getForeignKeyOneToOneMapped(FieldPropertiesInDatabase field) {
         StringBuilder foreignKey = new StringBuilder();
         foreignKey.append("id) REFERENCES ")
-                .append(getTableName(field.getForeignEntity())).append("(").append(field.getMappedBy()).append(")");
+                .append(getTableNameByClass(field.getForeignEntity())).append("(").append(field.getMappedBy()).append(")");
         return foreignKey;
     }
 
@@ -259,17 +296,6 @@ public class TablesInORM {
         return fullPathWhereAreEntity;
     }
 
-    private static String getTableName(Class<?> c) {
-        String tableName = "";
-        Annotation[] annotations = c.getDeclaredAnnotations();
-        for (Annotation annotation : annotations) {
-            if (annotation instanceof Table) {
-                tableName = ((Table) annotation).name();
-                break;
-            }
-        }
-        return tableName;
-    }
 
     private static String getTypeForField(String objectType) {
         if (objectType.endsWith("String")) {
