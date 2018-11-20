@@ -24,4 +24,45 @@ public class Car {
 
     @ManyToOne(targetEntity = Manufactured.class)
     private Manufactured manufactured;
+
+    public Car(long id, String name, int year, boolean isChangedColor, List<Person> owners, Manufactured manufactured) {
+        this.id = id;
+        this.name = name;
+        this.year = year;
+        this.isChangedColor = isChangedColor;
+        this.owners = owners;
+        this.manufactured = manufactured;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setYear(int year) {
+        this.year = year;
+    }
+
+    public void setChangedColor(boolean changedColor) {
+        isChangedColor = changedColor;
+    }
+
+    public void setOwners(List<Person> owners) {
+        this.owners = owners;
+    }
+
+    public void setManufactured(Manufactured manufactured) {
+        this.manufactured = manufactured;
+    }
+
+    @Override
+    public String toString() {
+        return "Car{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", year=" + year +
+                ", isChangedColor=" + isChangedColor +
+                ", owners=" + owners +
+                ", manufactured=" + manufactured +
+                '}';
+    }
 }

@@ -300,10 +300,12 @@ public class TablesInORM {
     private static String getTypeForField(String objectType) {
         if (objectType.endsWith("String")) {
             objectType = "VARCHAR";
-        } else if (objectType.contains("long")) {
+        } else if (objectType.toLowerCase().contains("long")) {
             objectType = "BIGINT";
         } else if (objectType.endsWith("LocalDate")) {
             objectType = "DATE";
+        }else if (objectType.endsWith("Integer")) {
+            objectType = "INT";
         }
         return objectType;
     }

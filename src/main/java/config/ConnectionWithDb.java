@@ -17,15 +17,16 @@ public class ConnectionWithDb {
     private static String dbName = null;
     private static String loginForDb = null;
     private static String passwordForDb = null;
+    private static String dbHost = null;
     //private final static Logger log = Logger.getLogger(ConnectionWithDb.class);
 
 
     static {
         try {
             getInitialConnectionWithDB();
-           // log.debug("Connection to database completed successful");
+            // log.debug("Connection to database completed successful");
         } catch (SQLException | IOException e) {
-           // log.error(e.getMessage());
+            // log.error(e.getMessage());
         }
     }
 
@@ -35,9 +36,8 @@ public class ConnectionWithDb {
 
     private static void getInitialConnectionWithDB() throws SQLException, IOException {
         getInfoFromProperties();
-
         try (Connection connectionForCreateDbIfNotExists = DriverManager.getConnection(String.valueOf(
-                new StringBuilder("jdbc:mysql://localhost/?user=").append(loginForDb)
+                new StringBuilder(dbHost + "/?user=").append(loginForDb)
                         .append("&password=").append(passwordForDb)))) {
 
             Statement statement = connectionForCreateDbIfNotExists.createStatement();
@@ -51,5 +51,6 @@ public class ConnectionWithDb {
         loginForDb = properties.get("login").toString();
         passwordForDb = properties.get("password").toString();
         dbName = properties.get("dbName").toString();
+        dbHost = properties.get("dbHost").toString();
     }
 }

@@ -20,7 +20,7 @@ public class Person {
     private String password;
 
     @ManyToMany(targetEntity = Car.class)
-    @JoinTable(name = "cars_people",
+    @JoinTable(name = "person_car",
             joinColumn = "person_id",
             inverseJoinColumn = "car_id")
     private List<Car> cars;
@@ -31,5 +31,36 @@ public class Person {
         this.name = name;
         this.password = password;
         this.cars = cars;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public void setLogin(String login) {
+        this.login = login;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public void setCars(List<Car> cars) {
+        this.cars = cars;
+    }
+
+    @Override
+    public String toString() {
+        return "Person{" +
+                "id=" + id +
+                ", login='" + login + '\'' +
+                ", name='" + name + '\'' +
+                ", password='" + password + '\'' +
+                ", cars=" + cars +
+                '}';
     }
 }
