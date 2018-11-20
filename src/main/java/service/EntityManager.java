@@ -146,7 +146,10 @@ public class EntityManager {
                         param = Integer.valueOf(value);
                     } else if (type.toLowerCase().contains("long")) {
                         param = Long.valueOf(value);
-                    } else if (type.toLowerCase().contains("localdate")) {
+                    } else if (type.toLowerCase().contains("double")) {
+                        param = Double.valueOf(value);
+                    }
+                    else if (type.toLowerCase().contains("localdate")) {
                         param = LocalDate.parse(value);
                     }
                     method.invoke(object, param);
