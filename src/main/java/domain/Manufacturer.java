@@ -4,27 +4,28 @@ import annotation.*;
 
 import java.util.List;
 
-@Table(name = "manufactured")
-public class Manufactured {
+@Table(name = "manufacturer")
+public class Manufacturer {
     @Id
     private long id;
 
     @Column(name = "country", unique = true, nullable = false, length = 30)
     private String country;
 
-    @OneToMany(mappedBy = "manufactured", targetEntity = Car.class)
+    @OneToMany(mappedBy = "manufacturer", targetEntity = Car.class)
     private List<Car> cars;
 
-   // @OneToOne(mappedBy = "manufactured", targetEntity = Director.class)
+    @OneToOne(mappedBy = "manufacturer", targetEntity = Director.class)
     private Director director;
 
-    public Manufactured() {
+    public Manufacturer() {
     }
 
-    public Manufactured(long id, String country, List<Car> cars) {
+    public Manufacturer(long id, String country, List<Car> cars, Director director) {
         this.id = id;
         this.country = country;
         this.cars = cars;
+        this.director = director;
     }
 
     public void setCountry(String country) {
@@ -45,7 +46,7 @@ public class Manufactured {
 
     @Override
     public String toString() {
-        return "Manufactured{" +
+        return "Manufacturer{" +
                 "id=" + id +
                 ", country='" + country + '\'' +
                 ", cars=" + cars +

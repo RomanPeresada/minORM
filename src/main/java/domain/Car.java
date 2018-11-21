@@ -1,7 +1,6 @@
 package domain;
 
 import annotation.*;
-import domain.Person;
 
 import java.util.List;
 
@@ -22,16 +21,16 @@ public class Car {
     @ManyToMany(targetEntity = Person.class, mappedBy = "cars")
     private List<Person> owners;
 
-    @ManyToOne(targetEntity = Manufactured.class)
-    private Manufactured manufactured;
+    @ManyToOne(targetEntity = Manufacturer.class)
+    private Manufacturer manufacturer;
 
-    public Car(long id, String name, int year, boolean isChangedColor, List<Person> owners, Manufactured manufactured) {
+    public Car(long id, String name, int year, boolean isChangedColor, List<Person> owners, Manufacturer manufacturer) {
         this.id = id;
         this.name = name;
         this.year = year;
         this.isChangedColor = isChangedColor;
         this.owners = owners;
-        this.manufactured = manufactured;
+        this.manufacturer = manufacturer;
     }
 
     public void setName(String name) {
@@ -42,7 +41,7 @@ public class Car {
         this.year = year;
     }
 
-    public void setChangedColor(boolean changedColor) {
+    public void setIsChangedColor(boolean changedColor) {
         isChangedColor = changedColor;
     }
 
@@ -50,8 +49,8 @@ public class Car {
         this.owners = owners;
     }
 
-    public void setManufactured(Manufactured manufactured) {
-        this.manufactured = manufactured;
+    public void setManufacturer(Manufacturer manufacturer) {
+        this.manufacturer = manufacturer;
     }
 
     @Override
@@ -62,7 +61,14 @@ public class Car {
                 ", year=" + year +
                 ", isChangedColor=" + isChangedColor +
                 ", owners=" + owners +
-                ", manufactured=" + manufactured +
+                ", manufacturer=" + manufacturer +
                 '}';
+    }
+
+    public Car() {
+    }
+
+    public void setId(long id) {
+        this.id = id;
     }
 }

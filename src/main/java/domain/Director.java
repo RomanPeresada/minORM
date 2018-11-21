@@ -18,6 +18,9 @@ public class Director {
     @Column(name = "age")
     private Integer age;
 
+    @OneToOne(targetEntity = Manufacturer.class)
+    private Manufacturer manufacturer;
+
     @Column(name = "salary")
     private double salary;
 
@@ -26,6 +29,23 @@ public class Director {
 
 
     public Director() {
+    }
+
+    public Director(long id, LocalDate date, Integer age, Manufacturer manufacturer, double salary, String job) {
+        this.id = id;
+        this.date = date;
+        this.age = age;
+        this.manufacturer = manufacturer;
+        this.salary = salary;
+        this.job = job;
+    }
+
+    public Director(long id, LocalDate date, Integer age, double salary, String job) {
+        this.id = id;
+        this.date = date;
+        this.age = age;
+        this.salary = salary;
+        this.job = job;
     }
 
     public void setId(long id) {
@@ -48,12 +68,8 @@ public class Director {
         this.job = job;
     }
 
-    public Director(long id, LocalDate date, Integer age, double salary, String job) {
-        this.id = id;
-        this.date = date;
-        this.age = age;
-        this.salary = salary;
-        this.job = job;
+    public void setManufacturer(Manufacturer manufacturer) {
+        this.manufacturer = manufacturer;
     }
 
     @Override
@@ -62,6 +78,7 @@ public class Director {
                 "id=" + id +
                 ", date=" + date +
                 ", age=" + age +
+                ", manufacturer=" + manufacturer +
                 ", salary=" + salary +
                 ", job='" + job + '\'' +
                 '}';

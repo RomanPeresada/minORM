@@ -8,6 +8,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Type;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -17,7 +18,16 @@ import java.util.*;
 import static config.ConnectionWithDb.getConnection;
 
 public class EntityManager {
+    private static EntityManager entityManager;
 
+    private EntityManager() {
+    }
+
+    public static EntityManager getInstance() {
+        if (entityManager == null)
+            entityManager = new EntityManager();
+        return entityManager;
+    }
 
     public <T> boolean createObject(T object) throws SQLException, IllegalAccessException, NoSuchFieldException {
         String tableName = ORMUtil.getTableNameByClass(object.getClass());
@@ -124,46 +134,138 @@ public class EntityManager {
         return res > 0;
     }
 
-    public <T> List<T> findAll(Class cl) throws SQLException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
+    public <T> T findById(Class cl, long id) throws SQLException, NoSuchFieldException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
         String tableName = ORMUtil.getTableNameByClass(cl);
+        String query = "SELECT * FROM " + tableName + " WHERE id=" + id + ";";
+        System.out.println(query);
+        T object = (T) cl.newInstance();
+        try (Statement statement = getConnection().createStatement()) {
+            ResultSet resultSet = statement.executeQuery(query);
+            while (resultSet.next()) {
+
+                Field[] fields = cl.getDeclaredFields();
+                List<Pair<String, Type>> fieldsInDB = ORMUtil.getFieldsInDBByClass(cl);
+                for (int i = 0; i < fieldsInDB.size(); i++) {
+                    Field currentField = fields[i];
+                    int counter = 1;
+                    while (counter < fields.length && !currentField.getGenericType().equals(fieldsInDB.get(i).getValue())) {
+                        currentField = fields[i + counter];
+                        counter++;
+                    }
+                    String nameOfMethod = "set" + String.valueOf(currentField.getName().charAt(0)).toUpperCase() + currentField.getName().substring(1);
+                    Method method = cl.getDeclaredMethod(nameOfMethod, currentField.getType());
+                    String type = currentField.getType().toString();
+                    String value = resultSet.getString(fieldsInDB.get(i).getKey());
+                    Object param = getParamByType(type, value);
+                    method.invoke(object, param);
+                }
+
+            }
+        }
+        return object;
+    }
+
+    public <T> List<T> findAll(Class currentClass) throws SQLException, IllegalAccessException, InstantiationException, NoSuchMethodException, NoSuchFieldException, ClassNotFoundException, InvocationTargetException {
+        String tableName = ORMUtil.getTableNameByClass(currentClass);
         String query = "SELECT * FROM " + tableName + ";";
         System.out.println(query);
         List<T> objects = new ArrayList<>();
         try (Statement statement = getConnection().createStatement()) {
             ResultSet resultSet = statement.executeQuery(query);
             while (resultSet.next()) {
-                T object = (T) cl.newInstance();
-                Field[] fields = cl.getDeclaredFields();
-                List<String> fieldsInDB = ORMUtil.getFieldsInDBByClass(cl);
+                T object = (T) currentClass.newInstance();
+                Field[] fields = currentClass.getDeclaredFields();
+                List<Pair<String, Type>> fieldsInDB = ORMUtil.getFieldsInDBByClassWithRelationship(currentClass);
                 for (int i = 0; i < fieldsInDB.size(); i++) {
-                    String nameOfMethod = "set" + String.valueOf(fields[i].getName().charAt(0)).toUpperCase() + fields[i].getName().substring(1);
-                    Method method = cl.getDeclaredMethod(nameOfMethod, fields[i].getType());
-                    String type = fields[i].getType().toString();
-                    String value = resultSet.getString(fieldsInDB.get(i));
-                    System.out.println(fieldsInDB.get(i) + " = " + value);
-                    Object param = value;
-                    if (type.toLowerCase().contains("int")) {
-                        param = Integer.valueOf(value);
-                    } else if (type.toLowerCase().contains("long")) {
-                        param = Long.valueOf(value);
-                    } else if (type.toLowerCase().contains("double")) {
-                        param = Double.valueOf(value);
+                    Field currentField = fields[i];
+                    int counter = 1;
+                    while (counter < fields.length && !currentField.getGenericType().equals(fieldsInDB.get(i).getValue())) {
+                        currentField = fields[i + counter];
+                        counter++;
                     }
-                    else if (type.toLowerCase().contains("localdate")) {
-                        param = LocalDate.parse(value);
+                    String nameOfMethod = "set" + String.valueOf(currentField.getName().charAt(0)).toUpperCase() + currentField.getName().substring(1);
+                    Method method = currentClass.getDeclaredMethod(nameOfMethod, currentField.getType());
+                    String type = currentField.getType().toString();
+                    Object param;
+                    String[] params = fieldsInDB.get(i).getKey().split(" ");
+                    if (params.length == 2) {
+                        param = getParamForReferenceEntity(currentClass, params, resultSet, fieldsInDB.get(i).getValue().getTypeName());
+                    }
+                    //  else if (params.length == 5) {
+                    //      param = getDependsEntityForManyToMany(params, resultSet.getString("id"));
+                    //      param = null;
+                    //  }
+                    else {
+                        String value = resultSet.getString(fieldsInDB.get(i).getKey());
+                        param = getParamByType(type, value);
                     }
                     method.invoke(object, param);
                 }
                 objects.add(object);
-
             }
         }
         return objects;
-
     }
 
+    private Object getParamForReferenceEntity(Class currentClass, String[] arr, ResultSet resultSet, String type) throws NoSuchMethodException, InstantiationException, NoSuchFieldException, SQLException, IllegalAccessException, InvocationTargetException, ClassNotFoundException {
+        Object param;
 
-    private static Pair<String, String> getPrimaryKey(Field field, Annotation annotation, Object object) throws IllegalAccessException {
+        if (ORMUtil.checkFieldInClass(currentClass, arr[1])) {
+            param = getMainEntity(arr, resultSet);
+        } else {
+            if (type.contains("List")) {
+                param = getDependsEntity(arr, resultSet.getString("id"));
+            } else {
+                param = !getDependsEntity(arr, resultSet.getString("id")).isEmpty() ?
+                        getDependsEntity(arr, resultSet.getString("id")).get(0) : null;
+            }
+        }
+        return param;
+    }
+
+    private <T> T getMainEntity(String[] params, ResultSet resultSet) throws SQLException, ClassNotFoundException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException, NoSuchFieldException {
+        String idOtherEntityInString = resultSet.getString(params[1]);
+        if (idOtherEntityInString != null && !idOtherEntityInString.toLowerCase().contains("null")) {
+            Class classOfOtherEntity = ORMUtil.getClassByTableName(params[0]);
+            long idOtherEntity = Long.parseLong(idOtherEntityInString);
+            return findById(classOfOtherEntity, idOtherEntity);
+        }
+        return null;
+    }
+
+    private <T> List<T> getDependsEntity(String[] params, String idThisEntityInString) throws SQLException, NoSuchMethodException, IllegalAccessException, InstantiationException, InvocationTargetException, NoSuchFieldException, ClassNotFoundException {
+        Class clEntity = ORMUtil.getClassByTableName(params[0]);
+        T object = (T) clEntity.newInstance();
+        List<T> list = new ArrayList<>();
+        long idCurrentEntity = Long.parseLong(idThisEntityInString);
+        String query = "SELECT * from " + params[0] + " where " + params[1] + "=" + idCurrentEntity + ";";
+        System.out.println(query);
+        try (Statement statement1 = getConnection().createStatement()) {
+            ResultSet resultSet = statement1.executeQuery(query);
+            while (resultSet.next()) {
+                Field[] fields = clEntity.getDeclaredFields();
+                List<Pair<String, Type>> fieldsInDB = ORMUtil.getFieldsInDBByClass(clEntity);
+                for (int i = 0; i < fieldsInDB.size(); i++) {
+                    Field currentField = fields[i];
+                    int counter = 1;
+                    while (counter < fields.length && !currentField.getGenericType().equals(fieldsInDB.get(i).getValue())) {
+                        currentField = fields[i + counter];
+                        counter++;
+                    }
+                    String nameOfMethod = "set" + String.valueOf(currentField.getName().charAt(0)).toUpperCase() + currentField.getName().substring(1);
+                    Method method = clEntity.getDeclaredMethod(nameOfMethod, currentField.getType());
+                    String value = resultSet.getString(fieldsInDB.get(i).getKey());
+                    Object param = getParamByType(currentField.getType().toString(), value);
+                    method.invoke(object, param);
+                }
+                list.add(object);
+            }
+        }
+        return list;
+    }
+
+    private static Pair<String, String> getPrimaryKey(Field field, Annotation annotation, Object object) throws
+            IllegalAccessException {
         if (annotation instanceof Id) {
             String key = ((Id) annotation).name();
             String value = field.get(object).toString();
@@ -248,10 +350,10 @@ public class EntityManager {
         List<String> queriesForManyToManyTable = new ArrayList<>();
         String tableNameManyToMany = ((JoinTable) annotation).name();
         List classOfOtherEntity = ((List) field.get(object));
-
         Field columnField = field.getDeclaringClass().getDeclaredField("id");
-        Field inverseColumnField = classOfOtherEntity.get(0).getClass().getDeclaredField("id");
         columnField.setAccessible(true);
+        Field inverseColumnField;
+        inverseColumnField = classOfOtherEntity.get(0).getClass().getDeclaredField("id");
         inverseColumnField.setAccessible(true);
         for (Object o : classOfOtherEntity) {
             StringBuilder builder = new StringBuilder("INSERT INTO ").append(tableNameManyToMany).append(" VALUES(")
@@ -260,4 +362,54 @@ public class EntityManager {
         }
         return queriesForManyToManyTable;
     }
+
+    private <T> List<T> getDependsEntityForManyToMany(String[] params, String idThisEntityInString) throws SQLException, NoSuchMethodException, IllegalAccessException, InstantiationException, InvocationTargetException, NoSuchFieldException, ClassNotFoundException {
+        Class clEntity = ORMUtil.getClassByTableName(params[2]);
+        T object = (T) clEntity.newInstance();
+        List<T> list = new ArrayList<>();
+        long idCurrentEntity = Long.parseLong(idThisEntityInString);
+        String query = "SELECT * from " + params[0] + " l JOIN " + params[1] + " s ON l.id=" + params[3] + " AND " + params[3] +
+                "=" + idCurrentEntity + "  JOIN " + params[2]
+                + " r ON r.id=" + params[4] + ";";
+        System.out.println(query);
+        try (Statement statement1 = getConnection().createStatement()) {
+            ResultSet resultSet = statement1.executeQuery(query);
+            Field[] fields = clEntity.getDeclaredFields();
+            List<Pair<String, Type>> fieldsInDB = ORMUtil.getFieldsInDBByClass(clEntity);
+            for (int i = 0; i < fieldsInDB.size() && resultSet.next(); i++) {
+                Field currentField = fields[i];
+                int counter = 1;
+                while (counter < fields.length && !currentField.getGenericType().equals(fieldsInDB.get(i).getValue())) {
+                    currentField = fields[i + counter];
+                    counter++;
+                }
+                String nameOfMethod = "set" + String.valueOf(currentField.getName().charAt(0)).toUpperCase() + currentField.getName().substring(1);
+                Method method = clEntity.getDeclaredMethod(nameOfMethod, currentField.getType());
+                String value = resultSet.getString("r.id");
+                Object param = getParamByType(currentField.getType().toString(), value);
+                method.invoke(object, param);
+            }
+            list.add(object);
+        }
+        return list;
+    }
+
+    private static Object getParamByType(String type, String value) {
+        Object param = value;
+        if (type.toLowerCase().contains("int")) {
+            param = Integer.valueOf(value);
+        } else if (type.toLowerCase().contains("long")) {
+            param = Long.valueOf(value);
+        } else if (type.toLowerCase().contains("double")) {
+            param = Double.valueOf(value);
+        } else if (type.toLowerCase().contains("localdate")) {
+            param = LocalDate.parse(value);
+        } else if (type.toLowerCase().contains("boolean")) {
+            param = value.equals("1");
+        } else if (type.toLowerCase().contains("string")) {
+            param = String.valueOf(value);
+        }
+        return param;
+    }
+
 }

@@ -20,12 +20,12 @@ import java.util.Properties;
 
 import static config.ConnectionWithDb.getConnection;
 import static util.ORMUtil.getTableNameByClass;
+import static util.ORMUtil.replaceSymbolsInPathForReflect;
 
 public class TablesInORM {
     private static String pathToEntities = null;
     private static List<String> foreignkeys = new ArrayList<>();
     private static List<TableForManyToMany> tablesForManyToMany = new ArrayList<>();
-    // private final static Logger log = Logger.getLogger(TablesInORM.class);
 
 
     public static void autoCreatingTablesAfterStartOfProgram() throws ClassNotFoundException, SQLException, IOException, NoSuchFieldException {
@@ -33,13 +33,11 @@ public class TablesInORM {
         String[] classesName = new File(pathToEntities).list();
         pathToEntities = replaceSymbolsInPathForReflect(pathToEntities);
         if (classesName != null) {
-            //   log.debug("Classes were found");
             for (String name : classesName) {
                 Class foundClass = Class.forName(pathToEntities + name.replaceAll(".java", ""));
                 String query = getQueryForCreateTable(foundClass);
                 try (Statement statement = getConnection().createStatement()) {
                     statement.executeUpdate(query);
-                    // log.debug("query was completed : " + query);
                 }
             }
             for (TableForManyToMany table : tablesForManyToMany) {
@@ -52,7 +50,6 @@ public class TablesInORM {
                     try (Statement statement = getConnection().createStatement()) {
                         System.out.println(foreignkey);
                         statement.executeUpdate(foreignkey);
-                        //   log.debug("query was completed : " + foreignkey);
                     }
                 }
             }
@@ -106,7 +103,7 @@ public class TablesInORM {
                     break;
             }
         }
-        primaryKey = replaceBracketsOfComma(primaryKey);
+        primaryKey = replaceBracketsByComma(primaryKey);
         builder = doesExistPrimaryKey ? builder.append(primaryKey) : builder.deleteCharAt(builder.length() - 1);
         builder.append(");");
         System.out.println(builder.toString());
@@ -287,16 +284,6 @@ public class TablesInORM {
         return builder;
     }
 
-    private static String replaceSymbolsInPathForReflect(String fullPathWhereAreEntity) {
-        fullPathWhereAreEntity = fullPathWhereAreEntity.replaceAll("[/\\\\]", ".");
-        for (int i = 0; i < 3; i++) {
-            int indexFirstDot = fullPathWhereAreEntity.indexOf(".");
-            fullPathWhereAreEntity = fullPathWhereAreEntity.substring(indexFirstDot + 1);
-        }
-        return fullPathWhereAreEntity;
-    }
-
-
     private static String getTypeForField(String objectType) {
         if (objectType.endsWith("String")) {
             objectType = "VARCHAR";
@@ -310,7 +297,7 @@ public class TablesInORM {
         return objectType;
     }
 
-    private static StringBuilder replaceBracketsOfComma(StringBuilder builder) {
+    private static StringBuilder replaceBracketsByComma(StringBuilder builder) {
         StringBuilder resultBuilder = new StringBuilder();
         for (int i = 0; i < builder.toString().lastIndexOf(")"); i++) {
             resultBuilder.append(builder.charAt(i) == ')' ? "," : builder.charAt(i));

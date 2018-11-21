@@ -33,6 +33,9 @@ public class Person {
         this.cars = cars;
     }
 
+    public Person() {
+    }
+
     public void setId(long id) {
         this.id = id;
     }
